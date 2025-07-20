@@ -1,0 +1,13 @@
+wikipedia-api
+deep-translator
+pyjokes
+feedparser
+requests
+openai
+python-dotenv
+flask
+pytz
+google-api-python-client
+chromadb
+tiktoken
+google-auth-oauthlib

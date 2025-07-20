@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="main-container">
+        <div id="sidebar">
+            <a href="/" class="new-chat-btn">+ KUPA Czat</a>
+            <nav id="chat-list">
+                <ul>
+                    {% for chat_id in all_chats %}
+                        <li>
+                            <a href="{{ url_for('chat_page', chat_id=chat_id) }}" class="{{ 'active' if chat_id == active_chat_id }}">
+                                Czat {{ loop.index }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </nav>
+        </div>
+        <div id="app-container">
+            <div id="chat-window">
+                <div id="chat-header">Jarvis PAWEL</div>
+                <div id="chat-messages">
+                    {% for message in chat_history %}
+                        <div class="message {{ 'user-message' if message.role == 'user' else 'jarvis-message' }}">
+                            {{ message.content|safe }}
+                        </div>
+                    {% endfor %}
+                    <div class="message jarvis-message" id="typing-indicator" style="display: none;">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            </div>
+            <form id="chat-form" data-chat-id="{{ active_chat_id }}">
+                <input type="text" id="message-input" placeholder="Napisz wiadomość..." autocomplete="off">
+                <button type="submit">Wyślij</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
