@@ -9,8 +9,8 @@ import datetime
 
 # Inicjalizacja
 load_dotenv()
-openai.api_key = os.getenv("sk-proj-wAkmJKxW4CmNUPBmdQuNE84qf7SWdIgB0dOMtz3nNnXm0tEi5BQlPnTitnhWaDfEKtkvCHMScKT3BlbkFJ7kvrhCVZNAryeb-E_SABRbk_LTA8qHTS1q7PIihWkRAdqDNvnRSyo07kyzn6bg1sw2Eo7C4_cAY")
-weather_key = os.getenv("23b3230e0bf4bcd3e2ecc1456c524e83")
+openai.api_key = os.getenv("OPENAI_API_KEY")
+weather_key = os.getenv("WEATHER_API_KEY")
 engine = pyttsx3.init()
 engine.setProperty('rate', 175)
 chat_history = []
