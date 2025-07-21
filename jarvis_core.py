@@ -7,6 +7,7 @@ import wikipediaapi
 from deep_translator import GoogleTranslator
 import pyjokes
 import feedparser
+import json
 import re
 from collections import Counter
 import pytz
@@ -56,6 +57,8 @@ COMMON_WEBSITES_MAP = {
     "onet": "https://www.onet.pl",
     "wp": "https://www.wp.pl",
 }
+
+
 
 # --- Inicjalizacja Bazy Wiedzy (ChromaDB) ---
 def init_chroma_db():
@@ -124,51 +127,70 @@ def get_weather_forecast(city, country=None):
         traceback.print_exc()
         return "Ups, coś poszło nie tak podczas sprawdzania pogody. Spróbuj ponownie później."
 
+def get_current_time(timezone_name):
+    """Pobiera aktualny czas dla podanej strefy czasowej."""
+    try:
+        target_tz = pytz.timezone(timezone_name)
+        now = datetime.datetime.now(target_tz)
+        return f"Aktualny czas w {timezone_name} to {now.strftime('%H:%M:%S')}."
+    except pytz.UnknownTimeZoneError:
+        return f"Niestety, nie znam takiej strefy czasowej: {timezone_name}. Spróbuj inaczej, np. 'Europe/Warsaw'."
+    except Exception as e:
+        print(f"Nieoczekiwany błąd podczas pobierania czasu: {e}")
+        return "Ups, coś poszło nie tak podczas sprawdzania czasu."
+
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather_forecast",
+            "description": "Pobiera aktualną pogodę i prognozę na 3 dni dla podanego miasta i kraju.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {
+                        "type": "string",
+                        "description": "Miasto, dla którego ma być sprawdzona pogoda, np. Warszawa",
+                    },
+                    "country": {
+                        "type": "string",
+                        "description": "Kraj, dla którego ma być sprawdzona pogoda, np. Polska",
+                    },
+                },
+                "required": ["city"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_time",
+            "description": "Pobiera aktualny czas dla podanej strefy czasowej.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "timezone_name": {
+                        "type": "string",
+                        "description": "Nazwa strefy czasowej, np. 'Europe/Warsaw', 'America/New_York'.",
+                    },
+                },
+                "required": ["timezone_name"],
+            },
+        },
+    }
+]
+
+available_functions = {
+    "get_weather_forecast": get_weather_forecast,
+    "get_current_time": get_current_time,
+}
+
 def process_command(user_input, chat_history):
-    """Przetwarza komendę użytkownika i zwraca odpowiedź."""
+    """Przetwarza komendę użytkownika, przekazując ją do GPT."""
     print(f"Przetwarzanie komendy: '{user_input}'")
-    command = user_input.lower()
-    print(f"Znormalizowana komenda (lowercase): '{command}'")
-    print(f"'godzina' in command: {'godzina' in command}")
-    print(f"'pogoda' in command: {'pogoda' in command}")
-
-    # Sprawdź, czy użytkownik pyta o godzinę
-    if "godzina" in command or "czas" in command or "która jest" in command:
-        print("Wykryto pytanie o godzinę.")
-        now = datetime.datetime.now()
-        response_text = f"Jest godzina {now.strftime('%H:%M')}."
-    # Sprawdź, czy użytkownik pyta o pogodę
-    elif "pogoda" in command:
-        print("Wykryto pytanie o pogodę.")
-        city = None
-        country = None
-
-        # Nowe, bardziej elastyczne podejście do ekstrakcji miasta i kraju
-        # Najpierw szukamy frazy "pogoda w" lub "pogoda dla" i bierzemy resztę zdania
-        match = re.search(r"pogoda\s*(?:w|dla)?\s*(.*)", command, re.IGNORECASE)
-        if match:
-            location_string = match.group(1).strip()
-            print(f"Wyodrębniony ciąg lokalizacji: '{location_string}'")
-
-            # Teraz próbujemy podzielić ciąg na miasto i kraj
-            parts = [p.strip() for p in location_string.split(',') if p.strip()]
-            if len(parts) >= 1:
-                city = parts[0]
-                if len(parts) >= 2:
-                    country = parts[1]
-            
-            print(f"Wyodrębnione miasto: '{city}', kraj: '{country}'")
-        else:
-            print("Nie znaleziono ciągu lokalizacji po 'pogoda'.")
-        
-        if city:
-            response_text = get_weather_forecast(city, country)
-        else:
-            response_text = "Dla jakiego miasta mam sprawdzić pogodę? Możesz też podać kraj."
-    else:
-        # Jeśli komenda nie jest rozpoznana, użyj GPT
-        print("Komenda nie rozpoznana, przekazuję do GPT.")
-        response_text = ask_gpt(user_input, chat_history)
+    
+    # Zawsze używaj GPT, które teraz potrafi obsługiwać narzędzia
+    response_text = ask_gpt(user_input, chat_history)
     
     return {"content": response_text}
 
@@ -192,23 +214,60 @@ def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
         raise NotImplementedError(f"""num_tokens_from_messages() is not implemented for model {model}. See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens.""")
 
 def ask_gpt(query, chat_history):
-    """Wysyła zapytanie do modelu GPT i zwraca odpowiedź."""
+    """Wysyła zapytanie do modelu GPT, obsługuje narzędzia i zwraca odpowiedź."""
     messages = []
-    # Dodaj historię czatu
     for msg in chat_history:
         messages.append({"role": msg["role"], "content": msg["content"]})
-    
-    # Dodaj aktualne zapytanie użytkownika
     messages.append({"role": "user", "content": query})
 
     try:
+        # Pierwsze wywołanie do AI, żeby sprawdzić, czy chce użyć narzędzia
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages,
-            max_tokens=150, # Ogranicz długość odpowiedzi
-            temperature=0.7, # Kreatywność odpowiedzi
+            tools=tools,
+            tool_choice="auto",
         )
-        return response.choices[0].message.content
+
+        response_message = response.choices[0].message
+        tool_calls = response_message.tool_calls
+
+        # Sprawdź, czy model chce wywołać narzędzie
+        if tool_calls:
+            messages.append(response_message) # dodaj odpowiedź AI do historii
+
+            # Wywołaj wszystkie narzędzia, o które prosi model
+            for tool_call in tool_calls:
+                function_name = tool_call.function.name
+                function_to_call = available_functions[function_name]
+                function_args = json.loads(tool_call.function.arguments)
+                
+                # Wywołaj funkcję z argumentami w sposób elastyczny
+                function_response = function_to_call(**function_args)
+
+                # Dodaj wynik działania funkcji do historii
+                messages.append(
+                    {
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": function_name,
+                        "content": function_response,
+                    }
+                )
+            
+            # Drugie wywołanie do AI z wynikiem funkcji, żeby dostać końcową odpowiedź
+            second_response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+            )
+            return second_response.choices[0].message.content
+
+        # Jeśli model nie chce użyć narzędzia, zwróć jego odpowiedź bezpośrednio
+        else:
+            return response_message.content
+
     except Exception as e:
         print(f"Błąd podczas komunikacji z OpenAI: {e}")
+        import traceback
+        traceback.print_exc()
         return "Przepraszam, coś poszło nie tak podczas generowania odpowiedzi."
