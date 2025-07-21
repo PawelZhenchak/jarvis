@@ -3,11 +3,11 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for
 import uuid
 import sqlite3
 from dotenv import load_dotenv
-# from jarvis_core import process_command
+from jarvis_core import process_command
 
 # --- Inicjalizacja Aplikacji ---
 load_dotenv()
-app = Flask(__name__, static_folder='frontend/build/static', template_folder='frontend/build')
+app = Flask(__name__, static_folder='frontend/build')
 
 # --- Konfiguracja Bazy Danych ---
 DB_FILE = "jarvis_chats.db"
@@ -43,12 +43,11 @@ def init_db():
 # --- Główne Trasy Aplikacji ---
 @app.route('/')
 def home():
-    chat_id = str(uuid.uuid4())
-    return redirect(url_for('chat_page', chat_id=chat_id))
+    return app.send_static_file('index.html')
 
 @app.route('/chat/<chat_id>')
 def chat_page(chat_id):
-    return render_template('index.html')
+    return app.send_static_file('index.html')
 
 @app.route('/chat_data')
 def chat_data():
@@ -73,11 +72,16 @@ def chat_data():
 
 @app.route('/ask', methods=['POST'])
 def ask():
+    print("--- Otrzymano POST na /ask ---")
     data = request.json
+    print(f"Dane z frontendu: {data}")
+
     user_input = data.get('message')
     chat_id = data.get('chat_id')
+    print(f"Wiadomość od usera: '{user_input}', ID czatu: '{chat_id}'")
 
     if not user_input or not chat_id:
+        print("Błąd: Brak wiadomości lub ID czatu")
         return jsonify({"error": "Brak wiadomości lub ID czatu"}), 400
 
     with get_db_connection() as conn:
@@ -87,12 +91,16 @@ def ask():
             (chat_id,)
         ).fetchall()
         chat_history = [dict(row) for row in history_rows]
+        print(f"Historia czatu dla AI: {chat_history}")
 
         # Przetwórz komendę
+        print("Przetwarzanie komendy przez jarvis_core...")
         response_data = process_command(user_input, chat_history)
+        print(f"Odpowiedź z process_command: {response_data}")
         assistant_response = response_data['content']
 
         # Zapisz obie wiadomości do bazy danych
+        print("Zapisywanie wiadomości do bazy danych...")
         conn.execute(
             'INSERT INTO messages (chat_id, role, content) VALUES (?, ?, ?)',
             (chat_id, 'user', user_input)
@@ -102,7 +110,9 @@ def ask():
             (chat_id, 'assistant', assistant_response)
         )
         conn.commit()
+        print("Zapisano pomyślnie.")
 
+    print(f"--- Wysyłanie odpowiedzi do frontendu: {response_data} ---")
     return jsonify(response_data)
 
 @app.route('/delete_chat', methods=['POST'])
