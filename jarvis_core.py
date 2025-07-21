@@ -195,6 +195,24 @@ def get_joke():
         print(f"Błąd podczas pobierania dowcipu: {e}")
         return "Przepraszam, nie mogę teraz opowiedzieć dowcipu. Coś poszło nie tak."
 
+def get_random_fact():
+    """Podaje losową, ciekawą informację.
+    """
+    facts = [
+        "Miód nigdy się nie psuje.",
+        "Serce krewetki znajduje się w jej głowie.",
+        "Ośmiornice mają trzy serca.",
+        "Mrówki potrafią podnieść ciężar 50 razy większy od własnego ciała.",
+        "Pszczoły potrafią rozpoznawać ludzkie twarze.",
+        "W kosmosie nie można płakać, bo łzy nie spływają.",
+        "Krokodyle nie potrafią wystawić języka.",
+        "Słońce jest tak duże, że zmieściłoby się w nim milion Ziem.",
+        "Najdłuższa wojna w historii trwała 335 lat.",
+        "Ludzkie DNA ma około 2 metry długości."
+    ]
+    import random
+    return random.choice(facts)
+
 
 tools = [
     {
@@ -311,6 +329,17 @@ tools = [
                 "properties": {},
             },
         },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_random_fact",
+            "description": "Podaje losową, ciekawą informację.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            },
+        },
     }
 ]
 
@@ -321,6 +350,7 @@ available_functions = {
     "get_latest_news": get_latest_news,
     "translate_text": translate_text,
     "get_joke": get_joke,
+    "get_random_fact": get_random_fact,
 }
 
 def process_command(user_input, chat_history):
