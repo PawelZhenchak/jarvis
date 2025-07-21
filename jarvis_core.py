@@ -174,6 +174,18 @@ def get_latest_news(rss_url="https://wiadomosci.onet.pl/.feed"): # Przykładowy 
         print(f"Błąd podczas pobierania wiadomości: {e}")
         return "Przepraszam, nie mogę teraz pobrać wiadomości. Coś poszło nie tak."
 
+def translate_text(text, source_lang="auto", target_lang="pl"):
+    """Tłumaczy tekst z jednego języka na drugi.
+    Domyślnie wykrywa język źródłowy i tłumaczy na polski.
+    """
+    try:
+        translator = GoogleTranslator(source=source_lang, target=target_lang)
+        translated_text = translator.translate(text)
+        return f"Tłumaczenie: {translated_text}"
+    except Exception as e:
+        print(f"Błąd podczas tłumaczenia tekstu: {e}")
+        return "Przepraszam, nie mogę teraz przetłumaczyć tekstu. Coś poszło nie tak."
+
 
 tools = [
     {
@@ -254,6 +266,31 @@ tools = [
                 },
             },
         },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "translate_text",
+            "description": "Tłumaczy tekst z jednego języka na drugi.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "Tekst do przetłumaczenia.",
+                    },
+                    "source_lang": {
+                        "type": "string",
+                        "description": "Język źródłowy, np. 'en' dla angielskiego. Domyślnie 'auto' (automatyczne wykrywanie).",
+                    },
+                    "target_lang": {
+                        "type": "string",
+                        "description": "Język docelowy, np. 'pl' dla polskiego. Domyślnie 'pl'.",
+                    },
+                },
+                "required": ["text"],
+            },
+        },
     }
 ]
 
@@ -262,6 +299,7 @@ available_functions = {
     "get_current_time": get_current_time,
     "get_wikipedia_summary": get_wikipedia_summary,
     "get_latest_news": get_latest_news,
+    "translate_text": translate_text,
 }
 
 def process_command(user_input, chat_history):
