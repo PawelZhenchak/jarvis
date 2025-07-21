@@ -8,6 +8,8 @@ from deep_translator import GoogleTranslator
 import pyjokes
 import feedparser
 import json
+import speech_recognition as sr
+import pyttsx3
 import re
 from collections import Counter
 import pytz
@@ -243,6 +245,45 @@ def get_random_fact():
     ]
     import random
     return random.choice(facts)
+
+def speak(text):
+    """Zamienia tekst na mowę i odtwarza go.
+    """
+    engine = pyttsx3.init()
+    # Ustawienie prędkości mówienia (np. 130 słów na minutę, bardzo spokojne tempo)
+    engine.setProperty('rate', 130)
+
+    # Próba znalezienia męskiego głosu
+    voices = engine.getProperty('voices')
+    for voice in voices:
+        # Na Windowsie głosy często mają w nazwie "David" (męski) lub "Zira" (żeński)
+        # Możemy też szukać po atrybucie 'gender' jeśli jest dostępny, ale nie zawsze jest
+        if "male" in voice.name.lower() or "david" in voice.name.lower():
+            engine.setProperty('voice', voice.id)
+            break
+    
+    engine.say(text)
+    engine.runAndWait()
+
+def listen_to_user():
+    """Słucha użytkownika przez mikrofon i zamienia mowę na tekst.
+    """
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("Mów teraz...")
+        audio = r.listen(source)
+
+    try:
+        text = r.recognize_google(audio, language="pl-PL") # Rozpoznawanie mowy po polsku
+        print(f"Powiedziałeś: {text}")
+        return text
+    except sr.UnknownValueError:
+        print("Nie zrozumiałem, co powiedziałeś.")
+        return ""
+    except sr.RequestError as e:
+        print(f"Błąd połączenia z usługą rozpoznawania mowy; {e}")
+        return ""
+
 
 def open_application(app_name):
     """Otwiera podaną aplikację na komputerze użytkownika.
@@ -574,6 +615,7 @@ def process_command(user_input, chat_history):
     # Zawsze używaj GPT, które teraz potrafi obsługiwać narzędzia
     response_text = ask_gpt(user_input, chat_history)
     
+    speak(response_text) # Jarvis mówi odpowiedź
     return {"content": response_text}
 
 def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
