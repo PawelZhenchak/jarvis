@@ -43,6 +43,23 @@ COMMON_APPLICATIONS_MAP = {
     "paint": "mspaint.exe",
     "przeglądarka": "chrome.exe",
     "terminal": "cmd.exe",
+    "cmd": "cmd.exe",
+    "powershell": "powershell.exe",
+    "explorer": "explorer.exe",
+    "menedżer zadań": "taskmgr.exe",
+    "ustawienia": "ms-settings:",
+    "sklep microsoft": "ms-windows-store:",
+    "wordpad": "wordpad.exe",
+    "mspaint": "mspaint.exe",
+    "snippingtool": "snippingtool.exe",
+    "notepad++": "notepad++.exe", # Jeśli zainstalowany i w PATH
+    "vlc": "vlc.exe", # Jeśli zainstalowany i w PATH
+    "spotify": "spotify.exe", # Jeśli zainstalowany i w PATH
+    "discord": "discord.exe", # Jeśli zainstalowany i w PATH
+    "steam": "steam.exe", # Jeśli zainstalowany i w PATH
+    "firefox": "firefox.exe", # Jeśli zainstalowany i w PATH
+    "edge": "msedge.exe", # Jeśli zainstalowany i w PATH
+    "telegram": "telegram.exe", # Jeśli zainstalowany i w PATH
 }
 
 # UWAGA: Ta lista została skrócona, aby naprawić błąd w pliku.
@@ -56,6 +73,20 @@ COMMON_WEBSITES_MAP = {
     "wikipedia": "https://pl.wikipedia.org",
     "onet": "https://www.onet.pl",
     "wp": "https://www.wp.pl",
+    "allegro": "https://allegro.pl",
+    "olx": "https://www.olx.pl",
+    "amazon": "https://www.amazon.com",
+    "netflix": "https://www.netflix.com",
+    "discord": "https://discord.com",
+    "reddit": "https://www.reddit.com",
+    "linkedin": "https://www.linkedin.com",
+    "twitch": "https://www.twitch.tv",
+    "bing": "https://www.bing.com",
+    "duckduckgo": "https://duckduckgo.com",
+    "interia": "https://www.interia.pl",
+    "gazeta": "https://www.gazeta.pl",
+    "sport.pl": "https://www.sport.pl",
+    "money.pl": "https://www.money.pl",
 }
 
 
@@ -213,6 +244,45 @@ def get_random_fact():
     import random
     return random.choice(facts)
 
+def open_application(app_name):
+    """Otwiera podaną aplikację na komputerze użytkownika.
+    Najpierw sprawdza w zdefiniowanej mapie, a następnie próbuje uruchomić nazwę aplikacji bezpośrednio.
+    """
+    app_path = COMMON_APPLICATIONS_MAP.get(app_name.lower())
+    if app_path:
+        try:
+            subprocess.Popen(app_path)
+            return f"Otwieram {app_name}."
+        except FileNotFoundError:
+            return f"Nie mogę znaleźć aplikacji {app_name} pod zdefiniowaną ścieżką. Spróbuję uruchomić ją bezpośrednio."
+        except Exception as e:
+            print(f"Błąd podczas otwierania aplikacji {app_name} z mapy: {e}")
+            return f"Przepraszam, nie mogę otworzyć {app_name}. Coś poszło nie tak."
+    
+    # Jeśli nie znaleziono w mapie, spróbuj uruchomić bezpośrednio
+    try:
+        subprocess.Popen(app_name)
+        return f"Otwieram {app_name}."
+    except FileNotFoundError:
+        return f"Nie mogę znaleźć aplikacji o nazwie {app_name}. Upewnij się, że jest zainstalowana i dostępna w ścieżce systemowej, lub dodaj ją do listy COMMON_APPLICATIONS_MAP."
+    except Exception as e:
+        print(f"Błąd podczas otwierania aplikacji {app_name} bezpośrednio: {e}")
+        return f"Przepraszam, nie mogę otworzyć {app_name}. Coś poszło nie tak."
+
+def open_website(site_name):
+    """Otwiera podaną stronę internetową w przeglądarce.
+    """
+    site_url = COMMON_WEBSITES_MAP.get(site_name.lower())
+    if site_url:
+        try:
+            webbrowser.open(site_url)
+            return f"Otwieram {site_name}."
+        except Exception as e:
+            print(f"Błąd podczas otwierania strony {site_name}: {e}")
+            return f"Przepraszam, nie mogę otworzyć {site_name}. Coś poszło nie tak."
+    else:
+        return f"Nie znam strony o nazwie {site_name}. Spróbuj innej nazwy lub dodaj ją do listy."
+
 
 tools = [
     {
@@ -340,6 +410,40 @@ tools = [
                 "properties": {},
             },
         },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "open_application",
+            "description": "Otwiera podaną aplikację na komputerze użytkownika.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "app_name": {
+                        "type": "string",
+                        "description": "Nazwa aplikacji do otwarcia, np. 'notatnik', 'chrome'.",
+                    },
+                },
+                "required": ["app_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "open_website",
+            "description": "Otwiera podaną stronę internetową w przeglądarce użytkownika.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "site_name": {
+                        "type": "string",
+                        "description": "Nazwa strony internetowej do otwarcia, np. 'google', 'youtube'.",
+                    },
+                },
+                "required": ["site_name"],
+            },
+        },
     }
 ]
 
@@ -351,6 +455,8 @@ available_functions = {
     "translate_text": translate_text,
     "get_joke": get_joke,
     "get_random_fact": get_random_fact,
+    "open_application": open_application,
+    "open_website": open_website,
 }
 
 def process_command(user_input, chat_history):
