@@ -186,6 +186,15 @@ def translate_text(text, source_lang="auto", target_lang="pl"):
         print(f"Błąd podczas tłumaczenia tekstu: {e}")
         return "Przepraszam, nie mogę teraz przetłumaczyć tekstu. Coś poszło nie tak."
 
+def get_joke():
+    """Opowiada losowy dowcip.
+    """
+    try:
+        return pyjokes.get_joke(language='en', category='neutral') # Domyślnie angielskie, neutralne dowcipy
+    except Exception as e:
+        print(f"Błąd podczas pobierania dowcipu: {e}")
+        return "Przepraszam, nie mogę teraz opowiedzieć dowcipu. Coś poszło nie tak."
+
 
 tools = [
     {
@@ -291,6 +300,17 @@ tools = [
                 "required": ["text"],
             },
         },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_joke",
+            "description": "Opowiada losowy dowcip.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            },
+        },
     }
 ]
 
@@ -300,6 +320,7 @@ available_functions = {
     "get_wikipedia_summary": get_wikipedia_summary,
     "get_latest_news": get_latest_news,
     "translate_text": translate_text,
+    "get_joke": get_joke,
 }
 
 def process_command(user_input, chat_history):
