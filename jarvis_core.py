@@ -139,6 +139,42 @@ def get_current_time(timezone_name):
         print(f"Nieoczekiwany błąd podczas pobierania czasu: {e}")
         return "Ups, coś poszło nie tak podczas sprawdzania czasu."
 
+def get_wikipedia_summary(query, lang="pl", sentences=2):
+    """Pobiera krótkie podsumowanie z Wikipedii dla danego zapytania.
+    Domyślnie szuka w języku polskim i zwraca 2 zdania.
+    """
+    try:
+        wiki_wiki = wikipediaapi.Wikipedia(lang)
+        page = wiki_wiki.page(query)
+
+        if not page.exists():
+            return f"Nie znalazłem nic na Wikipedii o '{query}'."
+        
+        return page.summary(sentences=sentences)
+
+    except Exception as e:
+        print(f"Błąd podczas pobierania z Wikipedii: {e}")
+        return "Przepraszam, nie mogę teraz sprawdzić Wikipedii. Coś poszło nie tak."
+
+def get_latest_news(rss_url="https://wiadomosci.onet.pl/.feed"): # Przykładowy RSS
+    """Pobiera najnowsze nagłówki wiadomości z podanego kanału RSS.
+    Domyślnie używa RSS z Onetu.
+    """
+    try:
+        feed = feedparser.parse(rss_url)
+        if not feed.entries:
+            return "Nie udało mi się pobrać żadnych wiadomości z tego źródła."
+        
+        news_headlines = "Najnowsze wiadomości:\n"
+        for entry in feed.entries[:5]: # Pobierz 5 najnowszych
+            news_headlines += f"- {entry.title}\n"
+        return news_headlines
+
+    except Exception as e:
+        print(f"Błąd podczas pobierania wiadomości: {e}")
+        return "Przepraszam, nie mogę teraz pobrać wiadomości. Coś poszło nie tak."
+
+
 tools = [
     {
         "type": "function",
@@ -177,12 +213,55 @@ tools = [
                 "required": ["timezone_name"],
             },
         },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_wikipedia_summary",
+            "description": "Pobiera krótkie podsumowanie z Wikipedii dla danego zapytania.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Zapytanie do wyszukania na Wikipedii, np. 'Nikola Tesla'.",
+                    },
+                    "lang": {
+                        "type": "string",
+                        "description": "Język Wikipedii, np. 'pl' dla polskiego, 'en' dla angielskiego. Domyślnie 'pl'.",
+                    },
+                    "sentences": {
+                        "type": "integer",
+                        "description": "Liczba zdań w podsumowaniu. Domyślnie 2.",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_latest_news",
+            "description": "Pobiera najnowsze nagłówki wiadomości z podanego kanału RSS.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "rss_url": {
+                        "type": "string",
+                        "description": "Adres URL kanału RSS, np. 'https://www.onet.pl/rss/wiadomosci'.",
+                    },
+                },
+            },
+        },
     }
 ]
 
 available_functions = {
     "get_weather_forecast": get_weather_forecast,
     "get_current_time": get_current_time,
+    "get_wikipedia_summary": get_wikipedia_summary,
+    "get_latest_news": get_latest_news,
 }
 
 def process_command(user_input, chat_history):
