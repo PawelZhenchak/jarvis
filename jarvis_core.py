@@ -283,6 +283,66 @@ def open_website(site_name):
     else:
         return f"Nie znam strony o nazwie {site_name}. Spróbuj innej nazwy lub dodaj ją do listy."
 
+TODO_FILE = "todos.txt"
+
+def add_todo(item):
+    """Dodaje nowe zadanie do listy zadań.
+    """
+    try:
+        with open(TODO_FILE, "a", encoding="utf-8") as f:
+            f.write(item + "\n")
+        return f"Dodano zadanie: {item}"
+    except Exception as e:
+        print(f"Błąd podczas dodawania zadania: {e}")
+        return "Przepraszam, nie mogę teraz dodać zadania."
+
+def list_todos():
+    """Wyświetla wszystkie zadania z listy zadań.
+    """
+    try:
+        if not os.path.exists(TODO_FILE):
+            return "Lista zadań jest pusta."
+        
+        with open(TODO_FILE, "r", encoding="utf-8") as f:
+            todos = f.readlines()
+        
+        if not todos:
+            return "Lista zadań jest pusta."
+        
+        response = "Twoje zadania:\n"
+        for i, todo in enumerate(todos):
+            response += f"{i+1}. {todo.strip()}\n"
+        return response
+    except Exception as e:
+        print(f"Błąd podczas listowania zadań: {e}")
+        return "Przepraszam, nie mogę teraz wyświetlić zadań."
+
+def remove_todo(item_index):
+    """Usuwa zadanie z listy zadań na podstawie jego numeru.
+    """
+    try:
+        if not os.path.exists(TODO_FILE):
+            return "Lista zadań jest pusta. Nic do usunięcia."
+        
+        with open(TODO_FILE, "r", encoding="utf-8") as f:
+            todos = f.readlines()
+        
+        if not todos:
+            return "Lista zadań jest pusta. Nic do usunięcia."
+        
+        if item_index < 1 or item_index > len(todos):
+            return f"Nieprawidłowy numer zadania. Podaj numer od 1 do {len(todos)}."
+        
+        removed_item = todos.pop(item_index - 1).strip()
+        
+        with open(TODO_FILE, "w", encoding="utf-8") as f:
+            f.writelines(todos)
+        
+        return f"Usunięto zadanie: {removed_item}"
+    except Exception as e:
+        print(f"Błąd podczas usuwania zadania: {e}")
+        return "Przepraszam, nie mogę teraz usunąć zadania."
+
 
 tools = [
     {
@@ -444,6 +504,51 @@ tools = [
                 "required": ["site_name"],
             },
         },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_todo",
+            "description": "Dodaje nowe zadanie do listy zadań.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "item": {
+                        "type": "string",
+                        "description": "Treść zadania do dodania.",
+                    },
+                },
+                "required": ["item"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_todos",
+            "description": "Wyświetla wszystkie zadania z listy zadań.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "remove_todo",
+            "description": "Usuwa zadanie z listy zadań na podstawie jego numeru.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "item_index": {
+                        "type": "integer",
+                        "description": "Numer zadania do usunięcia (licząc od 1).",
+                    },
+                },
+                "required": ["item_index"],
+            },
+        },
     }
 ]
 
@@ -457,6 +562,9 @@ available_functions = {
     "get_random_fact": get_random_fact,
     "open_application": open_application,
     "open_website": open_website,
+    "add_todo": add_todo,
+    "list_todos": list_todos,
+    "remove_todo": remove_todo,
 }
 
 def process_command(user_input, chat_history):
