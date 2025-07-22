@@ -21,8 +21,8 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/:path*',
-        destination: 'http://localhost:5000/:path*',
+        source: '/api/ask',
+        destination: 'http://127.0.0.1:5000/ask',
       },
     ]
   },
