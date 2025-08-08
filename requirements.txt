@@ -11,3 +11,6 @@ google-api-python-client
 chromadb
 tiktoken
 google-auth-oauthlib
+google-cloud-texttospeech
+SpeechRecognition
+pydub
