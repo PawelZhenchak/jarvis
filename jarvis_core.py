@@ -1,5 +1,6 @@
 import os
 import openai
+import threading
 import requests
 from dotenv import load_dotenv
 import datetime
@@ -27,6 +28,17 @@ from googleapiclient.discovery import build as build_google_service
 
 load_dotenv()
 client = openai.OpenAI()
+
+# Inicjalizacja silnika TTS (pyttsx3)
+try:
+    engine = pyttsx3.init()
+    # Ustawienie głosu na polski (Paulina)
+    # ID głosu można znaleźć uruchamiając list_voices.py
+    voice_id = "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_PL-PL_PAULINA_11.0"
+    engine.setProperty('voice', voice_id)
+except Exception as e:
+    print(f"Błąd podczas inicjalizacji silnika TTS: {e}")
+    engine = None
 
 weather_key = os.getenv("WEATHER_API_KEY")
 personality = "naturalny, pomocny, inteligentny"
@@ -246,24 +258,25 @@ def get_random_fact():
     import random
     return random.choice(facts)
 
-def speak(text):
-    """Zamienia tekst na mowę i odtwarza go.
-    """
-    engine = pyttsx3.init()
-    # Ustawienie prędkości mówienia (np. 130 słów na minutę, bardzo spokojne tempo)
-    engine.setProperty('rate', 130)
+def speak_in_background(text_to_speak):
+    """Helper function to run TTS in a separate thread."""
+    if engine:
+        try:
+            # This is a blocking call, but it's running in a separate thread
+            engine.say(text_to_speak)
+            engine.runAndWait()
+        except Exception as e:
+            print(f"Błąd podczas odtwarzania mowy w tle: {e}")
 
-    # Próba znalezienia męskiego głosu
-    voices = engine.getProperty('voices')
-    for voice in voices:
-        # Na Windowsie głosy często mają w nazwie "David" (męski) lub "Zira" (żeński)
-        # Możemy też szukać po atrybucie 'gender' jeśli jest dostępny, ale nie zawsze jest
-        if "male" in voice.name.lower() or "david" in voice.name.lower():
-            engine.setProperty('voice', voice.id)
-            break
-    
-    engine.say(text)
-    engine.runAndWait()
+def speak(text):
+    """Zamienia tekst na mowę i odtwarza go w tle, aby nie blokować głównego wątku."""
+    if engine:
+        # Uruchom mówienie w osobnym wątku
+        thread = threading.Thread(target=speak_in_background, args=(text,))
+        thread.daemon = True  # Wątek umrze, gdy główny program się zakończy
+        thread.start()
+    else:
+        print("Silnik TTS nie jest dostępny. Mowa nie może być odtworzona.")
 
 def listen_to_user():
     """Słucha użytkownika przez mikrofon i zamienia mowę na tekst.
@@ -615,7 +628,7 @@ def process_command(user_input, chat_history):
     # Zawsze używaj GPT, które teraz potrafi obsługiwać narzędzia
     response_text = ask_gpt(user_input, chat_history)
     
-    speak(response_text) # Jarvis mówi odpowiedź
+    # speak(response_text) # WYŁĄCZONE - frontend ma swój własny syntezator mowy
     return {"content": response_text}
 
 def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):

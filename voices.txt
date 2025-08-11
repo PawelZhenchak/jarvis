@@ -1,0 +1,23 @@
+Znaleziono 3 głosów:
+------------------------------
+Głos #0
+  ID: HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_PL-PL_PAULINA_11.0
+  Nazwa: Microsoft Paulina Desktop - Polish
+  Wiek: Adult
+  Płeć: Female
+  Język: ['pl-PL']
+------------------------------
+Głos #1
+  ID: HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_EN-US_ZIRA_11.0
+  Nazwa: Microsoft Zira Desktop - English (United States)
+  Wiek: Adult
+  Płeć: Female
+  Język: ['en-US']
+------------------------------
+Głos #2
+  ID: HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_RU-RU_IRINA_11.0
+  Nazwa: Microsoft Irina Desktop - Russian
+  Wiek: Adult
+  Płeć: Female
+  Język: ['ru-RU']
+------------------------------

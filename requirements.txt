@@ -14,3 +14,6 @@ google-auth-oauthlib
 google-cloud-texttospeech
 SpeechRecognition
 pydub
+pyttsx3
+playsound
+wikipedia
