@@ -652,8 +652,24 @@ def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
 
 def ask_gpt(query, chat_history):
     """Wysyła zapytanie do modelu GPT, obsługuje narzędzia i zwraca odpowiedź."""
-    messages = []
+    # Ustaw strefę czasową
+    warsaw_tz = pytz.timezone('Europe/Warsaw')
+    current_time = datetime.datetime.now(warsaw_tz)
+    # Dodano nazwę dnia tygodnia i miesiąca do formatu, żeby AI miało pełen kontekst
+    formatted_time = current_time.strftime("%A, %d %B %Y, %H:%M:%S")
+
+    # Stwórz systemowy prompt
+    system_prompt = (
+        f"Jesteś Jarvis, osobisty asystent AI. Twoja osobowość jest {personality}. "
+        f"Zawsze odpowiadaj po polsku. "
+        f"Dzisiaj jest {formatted_time} (czasu warszawskiego). Bądź świadomy tej daty i godziny, odpowiadając na pytania."
+    )
+
+    messages = [{"role": "system", "content": system_prompt}]
     for msg in chat_history:
+        # Pomijaj stare wiadomości systemowe, jeśli istnieją w historii
+        if msg.get("role") == "system":
+            continue
         messages.append({"role": msg["role"], "content": msg["content"]})
     messages.append({"role": "user", "content": query})
 

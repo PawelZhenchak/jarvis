@@ -1,5 +1,6 @@
 import os
 from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask_cors import CORS
 import uuid
 import sqlite3
 from dotenv import load_dotenv
@@ -8,6 +9,7 @@ from jarvis_core import process_command
 # --- Inicjalizacja Aplikacji ---
 load_dotenv()
 app = Flask(__name__, static_folder='frontend/build')
+CORS(app)
 
 # --- Konfiguracja Bazy Danych ---
 DB_FILE = "jarvis_chats.db"
@@ -168,4 +170,4 @@ def summarize_chat():
 
 if __name__ == '__main__':
     init_db()  # Upewnij się, że baza danych jest gotowa
-    app.run(debug=True)
+    app.run(port=9002, debug=True)

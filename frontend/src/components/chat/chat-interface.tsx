@@ -40,6 +40,12 @@ export default function ChatInterface() {
       onEndCallback?.();
       return;
     }
+
+    // Zatrzymaj rozpoznawanie mowy na czas mówienia
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+
     window.speechSynthesis.cancel(); // Anuluj poprzednie wypowiedzi
     isSpeakingRef.current = true;
     const utterance = new SpeechSynthesisUtterance(text);
@@ -64,11 +70,23 @@ export default function ChatInterface() {
     utterance.onend = () => {
       console.log("Speech finished.");
       isSpeakingRef.current = false;
+      
+      // Wznów nasłuchiwanie, jeśli nie jesteśmy w stanie bezczynności
+      if (listeningStateRef.current !== 'idle') {
+        startListening();
+      }
+
       onEndCallback?.();
     };
     utterance.onerror = (event) => {
       console.error("Speech synthesis error:", event);
       isSpeakingRef.current = false;
+
+      // Na wszelki wypadek, wznów nasłuchiwanie również po błędzie
+      if (listeningStateRef.current !== 'idle') {
+        startListening();
+      }
+
       onEndCallback?.();
     };
     
@@ -98,7 +116,7 @@ export default function ChatInterface() {
     if (sessionId) saveMessagesToSession(sessionId, newMessages);
 
     try {
-      const response = await fetch('http://localhost:5000/ask', {
+            const response = await fetch('http://localhost:9002/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: command, chat_id: sessionId }),
