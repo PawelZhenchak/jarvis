@@ -1,1 +1,3 @@
 Zrobić asystenta głosowego
+Zapamiętaj że musimy zrobić
+Zaimplementować funkcję wysyłania wiadomości na messengerze

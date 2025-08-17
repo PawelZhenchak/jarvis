@@ -659,10 +659,12 @@ def ask_gpt(query, chat_history):
     formatted_time = current_time.strftime("%A, %d %B %Y, %H:%M:%S")
 
     # Stwórz systemowy prompt
+    current_working_directory = os.getcwd()
     system_prompt = (
         f"Jesteś Jarvis, osobisty asystent AI. Twoja osobowość jest {personality}. "
         f"Zawsze odpowiadaj po polsku. "
-        f"Dzisiaj jest {formatted_time} (czasu warszawskiego). Bądź świadomy tej daty i godziny, odpowiadając na pytania."
+        f"Dzisiaj jest {formatted_time} (czasu warszawskiego). Bądź świadomy tej daty i godziny, odpowiadając na pytania. "
+        f"Aktualny katalog roboczy to: {current_working_directory}."
     )
 
     messages = [{"role": "system", "content": system_prompt}]

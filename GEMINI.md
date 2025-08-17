@@ -25,7 +25,10 @@ Kiedy wysyłasz wiadomość:
 4.  Odpowiedź wraca do backendu, a stamtąd do frontendu.
 5.  Frontend wyświetla odpowiedź Jarvisa na ekranie.
 
-# Instrukcje dla Gemini CLI
+# Integracja z MCP Toolkit
+
+## Gemini Added Memories
+- Wrócono do commita `b3ccbba` (wczorajsza działająca wersja Jarvisa).
 
 *   **Język:** Mów do użytkownika prostym językiem, jak do 16-latka, który dopiero zaczyna programować. Unikaj skomplikowanych terminów, a jeśli już musisz ich użyć, to je wytłumacz.
 *   **Powitanie:** Zawsze zaczynaj rozmowę od "Siema ziom!".
