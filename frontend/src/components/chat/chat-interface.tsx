@@ -53,9 +53,19 @@ export default function ChatInterface() {
     
     // Logowanie dostępnych głosów i wybranego głosu
     const voices = window.speechSynthesis.getVoices();
-    console.log("Available voices:", voices);
+    console.log("Available voices (inside speak):", voices); // Dodane logowanie
     const polishVoice = voices.find(v => v.lang === 'pl-PL');
-    console.log("Found Polish voice:", polishVoice);
+    console.log("Found Polish voice (inside speak):", polishVoice); // Dodane logowanie
+
+    if (selectedVoice) {
+      console.log("Using selected voice (inside speak):", selectedVoice); // Dodane logowanie
+      utterance.voice = selectedVoice;
+    } else if (polishVoice) {
+      console.log("Using found Polish voice (inside speak):", polishVoice); // Dodane logowanie
+      utterance.voice = polishVoice;
+    } else {
+      console.log("No Polish voice found, using default (inside speak)."); // Dodane logowanie
+    }
 
     if (selectedVoice) {
       console.log("Using selected voice:", selectedVoice);
