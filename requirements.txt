@@ -18,3 +18,4 @@ pyttsx3
 playsound
 wikipedia
 Flask-Cors
+assemblyai

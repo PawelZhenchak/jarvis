@@ -65,7 +65,7 @@ export function Stardust() {
           const size = ((width - star.z) / width) * 2.5;
           ctx.beginPath();
           ctx.fillStyle = `hsla(var(--foreground), ${((width - star.z) / width) * 0.7})`;
-          ctx.arc(px - width/2, py-height/2, size / 2, 0, Math.PI * 2);
+          ctx.arc(px - width/2, py-height/2, Math.max(0, size / 2), 0, Math.PI * 2);
           ctx.fill();
         }
       }

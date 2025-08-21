@@ -17,9 +17,13 @@ export default function ChatInterface() {
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [listeningState, setListeningState] = useState<ListeningState>('idle');
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [isRecording, setIsRecording] = useState(false); // Nowy stan do śledzenia nagrywania
+  
   const sleepTimerRef = useRef<NodeJS.Timeout | null>(null);
   const commandTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const finalTranscriptRef = useRef<string>("");
@@ -42,8 +46,8 @@ export default function ChatInterface() {
     }
 
     // Zatrzymaj rozpoznawanie mowy na czas mówienia
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
     }
 
     window.speechSynthesis.cancel(); // Anuluj poprzednie wypowiedzi
@@ -146,29 +150,79 @@ export default function ChatInterface() {
     }
   };
 
-  // --- Speech Recognition & State Machine ---
-  const stopListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.onend = null; // Prevent automatic restart
-      recognitionRef.current.stop();
+  const sendAudioToBackend = async (audioBlob: Blob) => {
+    setListeningState('processing');
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'recording.webm');
+
+    try {
+      const response = await fetch('http://localhost:9002/stt', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Network response was not ok for STT');
+      const data = await response.json();
+      const recognizedText = data.text;
+
+      if (recognizedText) {
+        handleSendMessage(recognizedText); // Send recognized text as a message
+      } else {
+        setNotification("Nie rozpoznano mowy. Spróbuj ponownie.");
+        setTimeout(() => setNotification(null), 3000);
+        setListeningState('in_conversation'); // Go back to listening
+      }
+    } catch (error) {
+      console.error('Błąd podczas wysyłania audio do backendu:', error);
+      setNotification("Problem z połączeniem STT. Spróbuj ponownie.");
+      setTimeout(() => setNotification(null), 5000);
+      setListeningState('in_conversation'); // Go back to listening
     }
+  };
+
+  // --- Speech Recognition & State Machine (now with MediaRecorder) ---
+  const startListening = async () => {
+    if (isSpeakingRef.current) return; // Don't start listening if Jarvis is speaking
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorderRef.current.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        sendAudioToBackend(audioBlob);
+        stream.getTracks().forEach(track => track.stop()); // Stop microphone access
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      setListeningState('in_conversation'); // Start directly in conversation mode
+      setNotification(null); // Clear any previous notifications
+      resetSleepTimer();
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      setNotification("Błąd dostępu do mikrofonu. Sprawdź uprawnienia.");
+      setTimeout(() => setNotification(null), 5000);
+      setListeningState('idle');
+    }
+  };
+
+  const stopListening = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
     setListeningState('idle');
     if (sleepTimerRef.current) clearTimeout(sleepTimerRef.current);
     if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
     finalTranscriptRef.current = ""; // Clear any pending transcript
   };
-
-  const startListening = () => {
-    if (recognitionRef.current) {
-      finalTranscriptRef.current = ""; // Clear transcript on start
-      try {
-        recognitionRef.current.start();
-      } catch (error) {
-        // Catch errors if recognition is already started, which can happen.
-        console.log("Speech recognition already started.", error);
-      }
-    }
-  };
+  
 
   const resetSleepTimer = () => {
     if (sleepTimerRef.current) clearTimeout(sleepTimerRef.current);
@@ -178,108 +232,7 @@ export default function ChatInterface() {
     }, 10 * 60 * 1000); // 10 minutes
   };
 
-  useEffect(() => {
-    if (!isBrowser) return;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast({ title: "Błąd", description: "Twoja przeglądarka nie wspiera rozpoznawania mowy.", variant: "destructive" });
-      return;
-    }
-
-    recognitionRef.current = new SpeechRecognition();
-    const recognition = recognitionRef.current;
-    recognition.lang = 'pl-PL';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    recognition.onstart = () => {
-      resetSleepTimer();
-    };
-
-    recognition.onresult = (event: any) => {
-      // Ignore any results that come in while Jarvis is speaking.
-      if (isSpeakingRef.current) {
-        console.log("Ignoring recognition result while speaking.");
-        return;
-      }
-
-      resetSleepTimer();
-
-      let currentTranscript = '';
-      let isFinal = false;
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        currentTranscript += event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          isFinal = true;
-        }
-      }
-      
-      const processedTranscript = currentTranscript.trim().toLowerCase();
-      console.log(`Result: "${processedTranscript}" (isFinal: ${isFinal})`);
-
-      if (listeningStateRef.current === 'waiting_for_wakeword') {
-        if (processedTranscript.includes('jarvis')) {
-          setListeningState('in_conversation');
-          speak("Słucham?");
-          finalTranscriptRef.current = ""; // Clear transcript so "jarvis" isn't sent as a command
-          if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
-        }
-      } else if (listeningStateRef.current === 'in_conversation') {
-        finalTranscriptRef.current = currentTranscript; // Keep updating with the latest transcript
-        
-        // Use a timeout to detect the end of speech
-        if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
-        commandTimeoutRef.current = setTimeout(() => {
-          console.log("Command timeout fired. Sending:", finalTranscriptRef.current);
-          if (finalTranscriptRef.current.trim()) {
-            handleSendMessage(finalTranscriptRef.current);
-          }
-          finalTranscriptRef.current = "";
-        }, 1200); // 1.2 second delay after they stop talking
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error("Recognition error:", event.error);
-
-      if (event.error === 'not-allowed') {
-        stopListening();
-        toast({
-          title: "Brak dostępu do mikrofonu",
-          description: "Jarvis nie ma pozwolenia na używanie mikrofonu. Sprawdź ustawienia w swojej przeglądarce (ikonka w pasku adresu).",
-          variant: "destructive",
-          duration: 10000 // Show for 10 seconds
-        });
-      } else if (event.error !== 'no-speech' && event.error !== 'audio-capture') {
-        // Handle other, more critical errors
-        stopListening();
-        toast({
-          title: "Błąd mikrofonu",
-          description: `Wystąpił błąd: ${event.error}.`,
-          variant: "destructive"
-        });
-      }
-      // For 'no-speech' or 'audio-capture', we do nothing and let the onend handler restart listening.
-    };
-
-    recognition.onend = () => {
-      console.log("Recognition ended. State:", listeningStateRef.current);
-      // Auto-restart listening as long as we are not idle or processing a command.
-      if (listeningStateRef.current !== 'idle' && listeningStateRef.current !== 'processing') {
-        startListening();
-      }
-    };
-
-    const loadVoices = () => {
-      const voices = window.speechSynthesis.getVoices();
-      const polishVoice = voices.find(v => v.lang === 'pl-PL');
-      if(polishVoice) setSelectedVoice(polishVoice);
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-
-    return () => { if (recognitionRef.current) recognitionRef.current.stop(); };
-  }, []);
+  
 
 
   // --- Session Management ---
@@ -328,20 +281,20 @@ export default function ChatInterface() {
 
   // --- Render ---
   const getStatusText = () => {
+    if (isRecording) {
+      return 'Nagrywam... Mów śmiało!';
+    }
     switch (listeningState) {
       case 'idle': return 'Jarvis śpi. Kliknij, aby go uruchomić.';
-      case 'waiting_for_wakeword': return 'Powiedz "Jarvis", aby aktywować.';
-      case 'in_conversation': return 'Słucham...';
       case 'processing': return 'Myślę...';
       default: return 'Gotowy';
     }
   };
 
   const handleButtonClick = () => {
-    if (listeningState === 'idle') {
-      setListeningState('waiting_for_wakeword');
+    if (!isRecording) { // If not currently recording, start recording
       startListening();
-    } else {
+    } else { // If currently recording, stop recording
       stopListening();
     }
   }
@@ -367,10 +320,11 @@ export default function ChatInterface() {
           disabled={listeningState === 'processing'}
         >
           {listeningState === 'processing' && <Loader2 className="h-8 w-8 animate-spin" />}
-          {(listeningState === 'waiting_for_wakeword' || listeningState === 'in_conversation') && <Mic className="h-8 w-8" />}
-          {listeningState === 'idle' && <MicOff className="h-8 w-8" />}
+          {isRecording && <Mic className="h-8 w-8" />}
+          {!isRecording && <MicOff className="h-8 w-8" />}
           <span className="sr-only">{listeningState === 'idle' ? 'Uruchom Jarvisa' : 'Zatrzymaj Jarvisa'}</span>
         </Button>
+        {notification && <p className="text-sm text-yellow-500 mt-2">{notification}</p>}
         <p className="text-sm text-muted-foreground mt-2">{getStatusText()}</p>
       </footer>
     </div>
