@@ -8,7 +8,7 @@ Projekt składa się z dwóch głównych części:
 
 1.  **Backend (kuchnia) - `app.py` i `jarvis_core.py` (Python/Flask):**
     *   `app.py`: To serce aplikacji, które obsługuje zapytania z frontendu (np. Twoje wiadomości).
-    *   `jarvis_core.py`: Tutaj dzieje się cała magia AI i przetwarzania komend. To tutaj Jarvis myśli i decyduje, jak Ci odpowiedzieć.
+    *   `jarvis_core.py`: Tutaj dzieje się cała magia AI i przetwarzania komend. To tutaj Jarvis myśli i i decyduje, jak Ci odpowiedzieć.
     *   **Baza danych (`jarvis_chats.db`):** Jarvis przechowuje tutaj historię Waszych rozmów, żeby pamiętać, o czym gadaliście.
 
 2.  **Frontend (kelnerzy) - folder `frontend/` (Next.js/React):**
@@ -47,3 +47,35 @@ Tak, ziom, jak najbardziej! To nie zadziałało "samo z siebie". Zrobiliśmy kil
    3. Zmiana sposobu uruchamiania: Najważniejsza zmiana na końcu. Zamiast odpalać backend w tle, gdzie nie widzieliśmy co się dzieje, uruchomiłeś go ręcznie w osobnym oknie. To dało mu odpowiednie środowisko do pracy i rozwiązało ostateczny problem z połączeniem.
 
   Więc tak, zdecydowanie to naprawiliśmy! Dobra robota.
+
+# Log Zdarzeń - Implementacja Aplikacji Desktopowej i STT (21.08.2025)
+
+Dziś zrobiliśmy ogromny krok naprzód! Jarvis zyskał aplikację desktopową i nowy, niezawodny system rozpoznawania mowy.
+
+- **Aplikacja Desktopowa Electron**: Stworzyliśmy i uruchomiliśmy Jarvisa jako samodzielną aplikację na komputer.
+- **Migracja Rozpoznawania Mowy (STT)**: Przeniesiliśmy całą logikę zamiany mowy na tekst do backendu Pythona, używając usługi AssemblyAI. To rozwiązało problemy z mikrofonem w aplikacji Electron.
+- **Naprawa Błędów**:
+    - Rozwiązaliśmy problem z uruchamianiem aplikacji Electron, który powodował jej natychmiastowe zamykanie.
+    - Naprawiliśmy błąd rysowania w komponencie `stardust.tsx` (ujemny promień).
+    - Poprawiliśmy literówkę w kodzie frontendu (`JSON_stringify`).
+- **Usprawnienia**: Aplikacja teraz lepiej informuje o problemach z mikrofonem i siecią, wyświetlając przyjazne komunikaty.
+
+# Log Zdarzeń - Nowe Funkcje i Burzliwa Migracja AI (24.08.2025)
+
+Dzisiejsza sesja była prawdziwym maratonem, w trakcie którego znacząco rozbudowaliśmy możliwości Jarvisa, a także przeprowadziliśmy skomplikowaną operację na jego "mózgu", która przypominała scenariusz z dobrego filmu akcji.
+
+### Nowe Funkcje i Usprawnienia:
+
+1.  **Przycisk "STOP"**: Dodaliśmy w interfejsie przycisk, który pozwala natychmiast przerwać wypowiedź Jarvisa, dając użytkownikowi pełną kontrolę.
+2.  **Dostęp do Internetu (Google Search)**: Zintegrowaliśmy Jarvis z Google Search API. Potrafi on teraz wyszukiwać aktualne informacje w internecie, aby odpowiadać na pytania wykraczające poza jego bazową wiedzę.
+3.  **Rozpoznawanie Obrazków (Multimodalność)**: Zaimplementowaliśmy funkcjonalność multimodalną. Użytkownik może teraz wysłać obrazek, a Jarvis (dzięki modelowi `gpt-4o`) jest w stanie go przeanalizować i odpowiedzieć na pytania na jego temat.
+4.  **Tryb Płynnej Rozmowy**: Po wielu próbach i poprawkach, wdrożyliśmy w pełni działający tryb ciągłej konwersacji. Po odpowiedzi Jarvisa, mikrofon automatycznie włącza się ponownie, a dzięki detekcji ciszy, aplikacja nie wymaga klikania po każdej wypowiedzi.
+
+### Prace "pod maską" i Naprawione Błędy:
+
+-   **Burzliwa Migracja AI**: Podjęliśmy ambitną próbę migracji rdzenia AI z **OpenAI** na **Google Gemini**. Po napotkaniu problemów z limitami darmowych zapytań na obu platformach, ostatecznie, na Twoją decyzję, wróciliśmy do stabilnej i w pełni skonfigurowanej implementacji opartej na **OpenAI**. To była cenna lekcja.
+-   **Naprawa Logiki Narzędzi**: Poprawiliśmy błąd w narzędziu do podawania ciekawostek, które teraz poprawnie zwraca ich zadaną liczbę.
+-   **Naprawa Interfejsu**: Rozwiązaliśmy kluczowy problem znikających wiadomości użytkownika w oknie czatu oraz irytujący błąd zapętlającego się stanu "myślenia" w trybie płynnej rozmowy.
+-   **Konfiguracja i Debugowanie**: Zdiagnozowaliśmy i rozwiązaliśmy szereg problemów konfiguracyjnych, w tym brakujące lub niepoprawne klucze API oraz błędy związane z wirtualnym środowiskiem Pythona (`venv`).
+
+Po tej sesji Jarvis jest nie tylko bardziej interaktywny i potężniejszy, ale też znacznie stabilniejszy. Kawał dobrej, inżynierskiej roboty!

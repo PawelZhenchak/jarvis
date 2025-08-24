@@ -240,9 +240,8 @@ def get_joke():
         print(f"Błąd podczas pobierania dowcipu: {e}")
         return "Przepraszam, nie mogę teraz opowiedzieć dowcipu. Coś poszło nie tak."
 
-def get_random_fact():
-    """Podaje losową, ciekawą informację.
-    """
+def get_random_fact(count=1):
+    """Podaje losową, ciekawą informację lub zadaną liczbę informacji."""
     facts = [
         "Miód nigdy się nie psuje.",
         "Serce krewetki znajduje się w jej głowie.",
@@ -256,7 +255,16 @@ def get_random_fact():
         "Ludzkie DNA ma około 2 metry długości."
     ]
     import random
-    return random.choice(facts)
+    
+    if count >= len(facts):
+        selected_facts = facts
+    else:
+        selected_facts = random.sample(facts, count)
+
+    if count == 1:
+        return selected_facts[0]
+    else:
+        return "\n".join(f"{i+1}. {fact}" for i, fact in enumerate(selected_facts))
 
 def speak_in_background(text_to_speak):
     """Helper function to run TTS in a separate thread."""
@@ -518,10 +526,15 @@ tools = [
         "type": "function",
         "function": {
             "name": "get_random_fact",
-            "description": "Podaje losową, ciekawą informację.",
+            "description": "Podaje losową, ciekawą informację lub zadaną liczbę informacji.",
             "parameters": {
                 "type": "object",
-                "properties": {},
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "description": "Liczba losowych ciekawostek do zwrócenia. Domyślnie 1."
+                    }
+                },
             },
         },
     },
@@ -648,7 +661,7 @@ def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
         num_tokens += 2  # every reply is primed with <im_start>assistant\n
         return num_tokens
     else:
-        raise NotImplementedError(f"""num_tokens_from_messages() is not implemented for model {model}. See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens.""")
+        raise NotImplementedError(f"num_tokens_from_messages() is not implemented for model {model}. See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens.")
 
 def ask_gpt(query, chat_history):
     """Wysyła zapytanie do modelu GPT, obsługuje narzędzia i zwraca odpowiedź."""

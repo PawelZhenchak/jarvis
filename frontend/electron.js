@@ -1,49 +1,98 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
-console.log("Plik electron.js wystartował. [KROK 1]");
+const { spawn } = require('child_process');
+const http = require('http');
+
+console.log("Plik electron.js wystartował.");
 
 function createWindow() {
-  console.log("Funkcja createWindow() została wywołana. [KROK 2]");
+  console.log("Tworzę okno aplikacji...");
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
-      webSecurity: false // TYLKO DO TESTÓW! Nie używać w produkcji.
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
     }
   });
-  console.log("Okno przeglądarki (BrowserWindow) zostało stworzone. [KROK 3]");
-
-  console.log("Próbuję załadować URL: http://localhost:3000 [KROK 4]");
+  console.log("Okno stworzone. Ładuję URL: http://localhost:3000");
   mainWindow.loadURL('http://localhost:3000');
 
   mainWindow.webContents.on('did-finish-load', () => {
-    console.log("URL został pomyślnie załadowany. [KROK 5]");
-  });
-
-  mainWindow.on('closed', () => {
-    console.log("Okno zostało zamknięte. [KROK 6]");
+    console.log("URL pomyślnie załadowany.");
   });
 }
 
+function checkServerReady(callback) {
+    const url = 'http://localhost:3000';
+    const maxRetries = 15; // Zwiększono liczbę prób
+    let retries = 0;
+
+    const tryConnect = () => {
+        console.log(`Sprawdzam czy serwer frontend jest gotowy... próba ${retries + 1}`);
+        const req = http.get(url, (res) => {
+            if (res.statusCode === 200) {
+                console.log("Serwer frontendu jest gotowy!");
+                callback();
+            } else {
+                console.log(`Serwer odpowiedział kodem ${res.statusCode}. Ponawiam próbę...`);
+                retry();
+            }
+        });
+
+        req.on('error', (err) => {
+            console.log(`Błąd połączenia: ${err.message}. Ponawiam próbę...`);
+            retry();
+        });
+    };
+
+    const retry = () => {
+        retries++;
+        if (retries < maxRetries) {
+            setTimeout(tryConnect, 2000); // Czekaj 2 sekundy przed kolejną próbą
+        } else {
+            console.error("Nie udało się połączyć z serwerem frontendu po wielu próbach. Zamykam aplikację.");
+            app.quit();
+        }
+    };
+
+    tryConnect();
+}
+
 app.on('ready', () => {
-    console.log("Aplikacja Electron jest gotowa ('ready' event). [KROK 7]");
-    createWindow();
+    console.log("Aplikacja Electron gotowa. Uruchamiam procesy w tle...");
+
+    const rootDir = path.join(__dirname, '..');
+    console.log(`Uruchamianie start_jarvis.bat z folderu: ${rootDir}`);
+
+    const bat = spawn('cmd.exe', ['/c', 'start_jarvis.bat'], {
+      cwd: rootDir,
+      detached: true,
+      stdio: 'ignore'
+    });
+
+    bat.unref();
+
+    console.log("Oczekiwanie na start serwera deweloperskiego Next.js...");
+    checkServerReady(() => {
+        console.log("Serwer gotowy, tworzę okno aplikacji.");
+        createWindow();
+    });
 });
 
 app.on('window-all-closed', function () {
-  console.log("Wszystkie okna zostały zamknięte ('window-all-closed' event). [KROK 8]");
   if (process.platform !== 'darwin') {
-    console.log("System to nie macOS, zamykam aplikację. [KROK 9]");
+    console.log("Wszystkie okna zamknięte. Zamykam aplikację.");
     app.quit();
   }
 });
 
 app.on('activate', function () {
-    console.log("Aplikacja została aktywowana ('activate' event). [KROK 10]");
     if (BrowserWindow.getAllWindows().length === 0) {
-        console.log("Brak otwartych okien, tworzę nowe. [KROK 11]");
-        createWindow();
+        console.log("Aplikacja aktywowana. Tworzę nowe okno.");
+        checkServerReady(() => {
+            createWindow();
+        });
     }
 });
-
-console.log("Zakończono konfigurację eventów Electrona. [KROK 12]");
