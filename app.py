@@ -10,6 +10,7 @@ import io
 import assemblyai as aai
 
 
+
 # --- Inicjalizacja Aplikacji ---
 load_dotenv()
 app = Flask(__name__, static_folder='frontend/build')
@@ -123,44 +124,44 @@ def ask():
 
 @app.route('/stt', methods=['POST'])
 def speech_to_text():
-    print("--- Otrzymano POST na /stt ---")
-    if 'audio' not in request.files:
-        print("Błąd: Brak pliku audio w żądaniu.")
-        return jsonify({"error": "Brak pliku audio"}), 400
-
-    audio_file = request.files['audio']
-    recognizer = sr.Recognizer()
+    # We are now receiving raw audio data, not a file from a form.
+    # We read it from request.data instead of request.files.
+    audio_data_bytes = request.data
+    
+    if not audio_data_bytes:
+        # Using English in print to avoid UnicodeEncodeError on some Windows consoles
+        print("Error: No audio data in request.")
+        return jsonify({"error": "Brak danych audio w żądaniu"}), 400
 
     try:
         # Set your AssemblyAI API key
         aai.settings.api_key = "cd995e316f234a248b619e9082de6dea" # User's provided key
 
-        # Read the audio file directly
-        audio_data_bytes = audio_file.read()
-        print(f"Rozmiar otrzymanego audio (WebM): {len(audio_data_bytes)} bajtów")
+        # The data is already in bytes, so we can use it directly.
+        print(f"Received audio data (bytes): {len(audio_data_bytes)}")
 
         # Create a transcriber client
         transcriber = aai.Transcriber()
 
         # Transcribe the audio
-        # AssemblyAI can handle various formats, including WebM directly
-        config = aai.TranscriptionConfig(language_code="pl") # Specify Polish language
+        config = aai.TranscriptionConfig(language_code="pl")
+        # We pass the raw bytes in a BytesIO stream
         transcript = transcriber.transcribe(io.BytesIO(audio_data_bytes), config=config)
+
+        if transcript.status == aai.TranscriptStatus.error:
+            print(f"AssemblyAI transcription error: {transcript.error}")
+            return jsonify({"error": f"Błąd transkrypcji: {transcript.error}"}), 500
 
         if transcript.text:
             text = transcript.text
-            print(f"Rozpoznano tekst (AssemblyAI): \"{text}\"")
             return jsonify({"text": text}), 200
         else:
-            print("AssemblyAI nie rozpoznało mowy.")
+            print("AssemblyAI did not recognize speech.")
             return jsonify({"error": "Nie rozpoznano mowy"}), 400
 
-    except aai.APIError as e:
-        print(f"Błąd AssemblyAI API: {e}")
-        return jsonify({"error": f"Błąd usługi rozpoznawania mowy (AssemblyAI): {e}"}), 500
     except Exception as e:
-        print(f"Nieoczekiwany błąd podczas przetwarzania audio (AssemblyAI): {e}")
-        return jsonify({"error": f"Nieoczekiwany błąd: {e}"}), 500
+        print(f"An unexpected error occurred during transcription: {e}")
+        return jsonify({"error": f"Krytyczny błąd podczas transkrypcji: {e}"}), 500
 
 @app.route('/delete_chat', methods=['POST'])
 def delete_chat():

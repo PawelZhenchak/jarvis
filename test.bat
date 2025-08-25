@@ -1,2 +1,5 @@
 @echo off
- echo Test dziala!
+ECHO.
+ECHO Siema! Jesli to widzisz, to znaczy, ze skrypty .bat dzialaja.
+ECHO.
+pause

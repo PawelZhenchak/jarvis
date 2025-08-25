@@ -2,7 +2,7 @@
 echo Uruchamiam Jarvisa...
 
 echo Startuje backend (serwer Python)...
-start cmd /k "python app.py"
+start cmd /k ".\venv\Scripts\activate && python app.py"
 
 echo Czekam na uruchomienie backendu... (daj mu chwilę)
 timeout /t 5 /nobreak >nul
