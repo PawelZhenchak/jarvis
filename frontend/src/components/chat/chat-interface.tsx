@@ -89,7 +89,7 @@ export default function ChatInterface() {
     }
     if (sessionId) saveMessagesToSession(sessionId, newMessages);
     try {
-      const response = await fetch('http://localhost:9002/ask', {
+      const response = await fetch('http://127.0.0.1:9002/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: command, chat_id: sessionId }),
@@ -110,22 +110,21 @@ export default function ChatInterface() {
   };
 
   const sendAudioToBackend = async (audioBlob: Blob) => {
-    // If the blob is smaller than a certain threshold, consider it empty/silence
-    // and just restart the listening process without hitting the backend.
-    if (audioBlob.size < 1000) { 
+    if (audioBlob.size < 1000) {
         console.log("Empty audio blob detected, restarting listening.");
         startListening();
         return;
     }
 
     setListeningState('processing');
-    const formData = new FormData();
-    formData.append('audio', audioBlob, 'recording.webm');
 
     try {
       const response = await fetch('http://localhost:9002/stt', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'audio/webm', // Tell the server what we're sending
+        },
+        body: audioBlob, // Send the blob directly
       });
 
       if (!response.ok) throw new Error('Network response was not ok for STT');

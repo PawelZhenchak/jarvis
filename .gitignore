@@ -51,4 +51,7 @@ Thumbs.db
 
 # API keys and credentials
 credentials.json
-*.json.json 
+*.json.json
+
+# Node dependencies
+node_modules/

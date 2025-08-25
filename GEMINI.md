@@ -79,3 +79,21 @@ Dzisiejsza sesja była prawdziwym maratonem, w trakcie którego znacząco rozbud
 -   **Konfiguracja i Debugowanie**: Zdiagnozowaliśmy i rozwiązaliśmy szereg problemów konfiguracyjnych, w tym brakujące lub niepoprawne klucze API oraz błędy związane z wirtualnym środowiskiem Pythona (`venv`).
 
 Po tej sesji Jarvis jest nie tylko bardziej interaktywny i potężniejszy, ale też znacznie stabilniejszy. Kawał dobrej, inżynierskiej roboty!
+
+# Log Zdarzeń - Debugowanie i Naprawa Wysyłania Audio (25.08.2025)
+
+Dzisiaj skupiliśmy się na naprawie krytycznego błędu, który uniemożliwiał Jarvisowi rozumienie poleceń głosowych. To była klasyczna detektywistyczna robota!
+
+- **Problem**: Po nagraniu polecenia głosowego, backend (Python) zgłaszał błąd `Error: No audio data in request`, mimo że frontend (przeglądarka) wydawał się wysyłać dane.
+
+- **Dochodzenie i Ślepe Zaułki**:
+    1.  Początkowo podejrzewaliśmy, że problemem jest format audio. Zmieniliśmy w kodzie format z `audio/webm` na `audio/wav`, licząc, że to rozwiąże problem.
+    2.  Niestety, to nie pomogło. Błąd nadal występował, co oznaczało, że problem leży głębiej.
+
+- **Przełom i Rozwiązanie**:
+    1.  Zajrzeliśmy do kodu backendu (`app.py`) i odkryliśmy kluczową informację: serwer oczekiwał *surowych danych audio* (`request.data`), a nie danych zapakowanych w formularz (`request.files`).
+    2.  Nasz frontend wysyłał audio opakowane w `FormData` - czyli w takim "pudełku". Backend oczekiwał samego pliku, bez pudełka. To było źródło całego nieporozumienia.
+    3.  Naprawiliśmy kod we frontendzie (`chat-interface.tsx`), usuwając pakowanie w `FormData`. Teraz frontend wysyła surowe dane audio bezpośrednio w ciele zapytania.
+    4.  Dodatkowo ustawiliśmy poprawny nagłówek `Content-Type: audio/webm` i wróciliśmy do tego formatu, który jest bardziej standardowy dla przeglądarek.
+
+- **Rezultat**: Po tych zmianach komunikacja wróciła do normy. Backend w końcu "usłyszał", co wysyła frontend, i funkcja zamiany mowy na tekst znów działa poprawnie. Dobra robota!
