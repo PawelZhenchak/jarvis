@@ -16,6 +16,15 @@ load_dotenv()
 app = Flask(__name__, static_folder='frontend/build')
 CORS(app)
 
+# --- Konfiguracja Uploadu ---
+UPLOAD_FOLDER = 'uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Globalny słownik do przechowywania kontekstu dokumentu dla każdej sesji czatu
+# Klucz: chat_id, Wartość: ścieżka do pliku
+document_context = {}
+
 # --- Konfiguracja Bazy Danych ---
 DB_FILE = "jarvis_chats.db"
 
@@ -100,9 +109,14 @@ def ask():
         chat_history = [dict(row) for row in history_rows]
         print(f"Historia czatu dla AI: {chat_history}")
 
+        # Sprawdź, czy dla tego czatu jest załadowany dokument
+        file_path = document_context.get(chat_id)
+        if file_path:
+            print(f"Znaleziono dokument dla tego czatu: {file_path}")
+
         # Przetwórz komendę
         print("Przetwarzanie komendy przez jarvis_core...")
-        response_data = process_command(user_input, chat_history)
+        response_data = process_command(user_input, chat_history, file_path=file_path)
         print(f"Odpowiedź z process_command: {response_data}")
         assistant_response = response_data['content']
 
@@ -121,6 +135,31 @@ def ask():
 
     print(f"--- Wysyłanie odpowiedzi do frontendu: {response_data} ---")
     return jsonify(response_data)
+
+@app.route('/upload_document', methods=['POST'])
+def upload_document():
+    if 'file' not in request.files:
+        return jsonify({"error": "Brak pliku w zapytaniu"}), 400
+    file = request.files['file']
+    chat_id = request.form.get('chat_id')
+
+    if not chat_id:
+        return jsonify({"error": "Brak chat_id"}), 400
+    if file.filename == '':
+        return jsonify({"error": "Nie wybrano pliku"}), 400
+
+    if file:
+        from werkzeug.utils import secure_filename
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        file.save(file_path)
+
+        document_context[chat_id] = file_path
+        
+        print(f"Plik {filename} dla sesji {chat_id} zapisany w {file_path}")
+
+        return jsonify({"message": "Plik został pomyślnie przesłany."}), 200
 
 @app.route('/stt', methods=['POST'])
 def speech_to_text():

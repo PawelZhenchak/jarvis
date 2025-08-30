@@ -26,7 +26,18 @@ from googleapiclient.errors import HttpError
 from email.mime.text import MIMEText
 from googleapiclient.discovery import build as build_google_service
 
+# --- LangChain Imports ---
+from langchain_community.document_loaders import PyPDFLoader, TextLoader
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.chains import create_retrieval_chain, create_history_aware_retriever
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
 load_dotenv()
+print(f"load_dotenv() result: {load_dotenv()}")
+print(f"os.environ['YOUTUBE_API_KEY'] after load_dotenv: {os.environ.get('YOUTUBE_API_KEY')}")
 client = openai.OpenAI()
 
 # Inicjalizacja silnika TTS (pyttsx3)
@@ -306,6 +317,41 @@ def listen_to_user():
         return ""
 
 
+import requests
+import re
+import json # Needed for parsing initial data from YouTube page
+
+youtube_api_key = os.getenv("YOUTUBE_API_KEY")
+print(f"YouTube API Key loaded: {youtube_api_key is not None}")
+
+def search_youtube(query):
+    """Wyszukuje filmiki na YouTube na podstawie zapytania i otwiera pierwszy znaleziony filmik za pomocą YouTube Data API."""
+    if not youtube_api_key:
+        return "Przepraszam, klucz API YouTube nie jest skonfigurowany. Nie mogę wyszukać filmików."
+
+    try:
+        youtube = build("youtube", "v3", developerKey=youtube_api_key)
+
+        request = youtube.search().list(
+            q=query,
+            part="snippet",
+            type="video",
+            maxResults=1  # Get only the first result
+        )
+        response = request.execute()
+
+        if response and response["items"]:
+            video_id = response["items"][0]["id"]["videoId"]
+            video_url = f"https://www.youtube.com/watch?v={video_id}"
+            webbrowser.open(video_url)
+            return f"Otwieram filmik na YouTube: {video_url} dla zapytania: {query}."
+        else:
+            return f"Nie znalazłem żadnych filmików na YouTube dla zapytania: {query}."
+
+    except Exception as e:
+        print(f"Błąd podczas wyszukiwania YouTube przez API: {e}")
+        return f"Przepraszam, nie mogę wyszukać filmiku na YouTube dla zapytania {query}. Coś poszło nie tak z API."
+
 def open_application(app_name):
     """Otwiera podaną aplikację na komputerze użytkownika.
     Najpierw sprawdza w zdefiniowanej mapie, a następnie próbuje uruchomić nazwę aplikacji bezpośrednio.
@@ -331,19 +377,28 @@ def open_application(app_name):
         print(f"Błąd podczas otwierania aplikacji {app_name} bezpośrednio: {e}")
         return f"Przepraszam, nie mogę otworzyć {app_name}. Coś poszło nie tak."
 
-def open_website(site_name):
-    """Otwiera podaną stronę internetową w przeglądarce.
+def open_website(url_or_name):
+    """Otwiera podaną stronę internetową w przeglądarce użytkownika.
+    Może otworzyć stronę z predefiniowanej listy lub dowolny URL.
     """
-    site_url = COMMON_WEBSITES_MAP.get(site_name.lower())
+    # Try to find in predefined map first
+    site_url = COMMON_WEBSITES_MAP.get(url_or_name.lower())
+    
     if site_url:
-        try:
-            webbrowser.open(site_url)
-            return f"Otwieram {site_name}."
-        except Exception as e:
-            print(f"Błąd podczas otwierania strony {site_name}: {e}")
-            return f"Przepraszam, nie mogę otworzyć {site_name}. Coś poszło nie tak."
+        target_url = site_url
     else:
-        return f"Nie znam strony o nazwie {site_name}. Spróbuj innej nazwy lub dodaj ją do listy."
+        # Assume it's a direct URL
+        if not url_or_name.startswith(("http://", "https://")):
+            target_url = "https://" + url_or_name
+        else:
+            target_url = url_or_name
+
+    try:
+        webbrowser.open(target_url)
+        return f"Otwieram {url_or_name}."
+    except Exception as e:
+        print(f"Błąd podczas otwierania strony {url_or_name}: {e}")
+        return f"Przepraszam, nie mogę otworzyć {url_or_name}. Coś poszło nie tak."
 
 TODO_FILE = "todos.txt"
 
@@ -541,6 +596,23 @@ tools = [
     {
         "type": "function",
         "function": {
+            "name": "search_youtube",
+            "description": "Użyj tego narzędzia, gdy użytkownik chce coś włączyć, znaleźć, obejrzeć lub posłuchać na YouTube. Narzędzie wyszukuje na YouTube wideo na podstawie zapytania (np. 'najnowsze wiadomości', 'piosenka sanah') i automatycznie otwiera w przeglądarce pierwszy znaleziony filmik.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Zapytanie do wyszukania na YouTube, np. 'śmieszne koty', 'najnowsze wiadomości'.",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "open_application",
             "description": "Otwiera podaną aplikację na komputerze użytkownika.",
             "parameters": {
@@ -559,16 +631,16 @@ tools = [
         "type": "function",
         "function": {
             "name": "open_website",
-            "description": "Otwiera podaną stronę internetową w przeglądarce użytkownika.",
+            "description": "Otwiera podaną stronę internetową w przeglądarce użytkownika. Może otworzyć stronę z predefiniowanej listy (np. 'google', 'youtube') lub dowolny URL (np. 'https://www.example.com').",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "site_name": {
+                    "url_or_name": {
                         "type": "string",
-                        "description": "Nazwa strony internetowej do otwarcia, np. 'google', 'youtube'.",
+                        "description": "Nazwa strony internetowej (np. 'google') lub pełny URL (np. 'https://www.example.com') do otwarcia.",
                     },
                 },
-                "required": ["site_name"],
+                "required": ["url_or_name"],
             },
         },
     },
@@ -627,6 +699,7 @@ available_functions = {
     "translate_text": translate_text,
     "get_joke": get_joke,
     "get_random_fact": get_random_fact,
+    "search_youtube": search_youtube, # Added this line
     "open_application": open_application,
     "open_website": open_website,
     "add_todo": add_todo,
@@ -634,15 +707,116 @@ available_functions = {
     "remove_todo": remove_todo,
 }
 
-def process_command(user_input, chat_history):
-    """Przetwarza komendę użytkownika, przekazując ją do GPT."""
+def process_command(user_input, chat_history, file_path=None):
+    """Przetwarza komendę użytkownika, decydując czy użyć standardowej logiki GPT, czy logiki RAG z dokumentem."""
     print(f"Przetwarzanie komendy: '{user_input}'")
+
+    # --- Easter Egg ---
+    normalized_input = user_input.lower()
+    if "najpiękniejsza" in normalized_input and ("dziewczyna" in normalized_input or "kobieta" in normalized_input):
+        return {"content": "Ola Reczulska!!!!"}
+    # --- Koniec Easter Egg ---
+
+    if file_path:
+        print(f"Używanie kontekstu z pliku: {file_path}")
+        response_text = ask_gpt_with_document(user_input, chat_history, file_path)
+    else:
+        # Standardowa logika, jeśli nie ma pliku
+        print("Brak pliku, używanie standardowej logiki GPT.")
+        response_text = ask_gpt(user_input, chat_history)
     
-    # Zawsze używaj GPT, które teraz potrafi obsługiwać narzędzia
-    response_text = ask_gpt(user_input, chat_history)
-    
-    # speak(response_text) # WYŁĄCZONE - frontend ma swój własny syntezator mowy
     return {"content": response_text}
+
+
+def ask_gpt_with_document(query, chat_history, file_path):
+    """
+    Obsługuje zapytania do AI w kontekście załadowanego dokumentu, używając LangChain RAG.
+    """
+    from langchain_core.messages import HumanMessage, AIMessage
+
+    print("--- Rozpoczynam procesowanie z dokumentem (RAG) ---")
+    try:
+        # 1. Załaduj dokument
+        print(f"1. Ładowanie dokumentu: {file_path}")
+        if file_path.lower().endswith(".pdf"):
+            loader = PyPDFLoader(file_path)
+        elif file_path.lower().endswith(".txt") or file_path.lower().endswith(".md"):
+            loader = TextLoader(file_path, encoding="utf-8")
+        else:
+            return "Niestety, obsługuję tylko pliki .pdf, .txt i .md."
+        
+        docs = loader.load()
+
+        # 2. Podziel dokument na kawałki (chunking)
+        print("2. Dzielenie dokumentu na fragmenty.")
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        splits = text_splitter.split_documents(docs)
+
+        # 3. Stwórz wektorową bazę danych (vector store)
+        print("3. Tworzenie wektorowej bazy danych (FAISS).")
+        embeddings = OpenAIEmbeddings()
+        vectorstore = FAISS.from_documents(documents=splits, embedding=embeddings)
+        retriever = vectorstore.as_retriever()
+
+        # 4. Stwórz prompt do uwzględniania historii konwersacji
+        contextualize_q_system_prompt = (
+            "Biorąc pod uwagę historię rozmowy i ostatnie pytanie użytkownika, "
+            "które może odnosić się do kontekstu w historii czatu, "
+            "sformułuj samodzielne pytanie, które może być zrozumiane bez historii czatu. "
+            "NIE odpowiadaj na pytanie, po prostu przeformułuj je, jeśli to konieczne, w przeciwnym razie zwróć je w oryginalnej formie."
+        )
+        contextualize_q_prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", contextualize_q_system_prompt),
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}"),
+            ]
+        )
+        history_aware_retriever = create_history_aware_retriever(
+            client, retriever, contextualize_q_prompt
+        )
+
+        # 5. Stwórz główny prompt do odpowiedzi na pytanie
+        qa_system_prompt = (
+            "Jesteś asystentem do odpowiadania na pytania. "
+            "Użyj poniższych fragmentów odzyskanego kontekstu, aby odpowiedzieć na pytanie. "
+            "Jeśli nie znasz odpowiedzi, po prostu powiedz, że nie wiesz. "
+            "Odpowiadaj zwięźle i po polsku.\n\n"
+            "{context}"
+        )
+        qa_prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", qa_system_prompt),
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}"),
+            ]
+        )
+
+        # 6. Stwórz łańcuch (chain) do tworzenia odpowiedzi
+        question_answer_chain = create_stuff_documents_chain(client, qa_prompt)
+        rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+
+        # 7. Wywołaj łańcuch i uzyskaj odpowiedź
+        print("4. Wywoływanie łańcucha RAG w celu uzyskania odpowiedzi.")
+        langchain_history = []
+        for msg in chat_history:
+            if msg['role'] == 'user':
+                langchain_history.append(HumanMessage(content=msg['content']))
+            elif msg['role'] == 'assistant':
+                langchain_history.append(AIMessage(content=msg['content']))
+
+        result = rag_chain.invoke({"input": query, "chat_history": langchain_history})
+        
+        print("--- Procesowanie RAG zakończone ---")
+        return result["answer"]
+
+    except Exception as e:
+        print(f"Błąd podczas przetwarzania dokumentu z LangChain: {e}")
+        import traceback
+        traceback.print_exc()
+        return "Przepraszam, wystąpił błąd podczas analizy dokumentu. Spróbuj ponownie."
+
+
 
 def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
     """Returns the number of tokens used by a list of messages."""

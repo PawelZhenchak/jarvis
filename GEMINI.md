@@ -97,3 +97,22 @@ Dzisiaj skupiliśmy się na naprawie krytycznego błędu, który uniemożliwiał
     4.  Dodatkowo ustawiliśmy poprawny nagłówek `Content-Type: audio/webm` i wróciliśmy do tego formatu, który jest bardziej standardowy dla przeglądarek.
 
 - **Rezultat**: Po tych zmianach komunikacja wróciła do normy. Backend w końcu "usłyszał", co wysyła frontend, i funkcja zamiany mowy na tekst znów działa poprawnie. Dobra robota!
+
+# Log Zdarzeń - Analiza Dokumentów i Debugowanie (30.08.2025)
+
+Dzisiejsza sesja to był prawdziwy rollercoaster, podczas którego dodaliśmy Jarvisowi jedną z jego najpotężniejszych dotąd umiejętności, a następnie stoczyliśmy zaciętą walkę z jednym z najbardziej podstawowych, a zarazem podstępnych błędów.
+
+### Nowe Funkcje:
+
+1.  **Analiza Dokumentów (RAG)**: Jarvis potrafi teraz czytać i odpowiadać na pytania dotyczące treści plików `.pdf` i `.txt`. To ogromny krok naprzód w jego zdolnościach.
+    *   **Frontend**: Dodaliśmy interfejs do wysyłania plików (przycisk spinacza, wyświetlanie nazwy wybranego pliku).
+    *   **Backend**: Stworzyliśmy nowy endpoint (`/upload_document`) w `app.py` do odbierania i zapisywania plików.
+    *   **Rdzeń AI**: W `jarvis_core.py` zaimplementowaliśmy pełny potok RAG (Retrieval-Augmented Generation) przy użyciu biblioteki **LangChain**. Obejmuje to ładowanie dokumentów, dzielenie ich na fragmenty, tworzenie wektorowej bazy danych (FAISS) i odpowiadanie na pytania w kontekście załadowanej wiedzy.
+
+2.  **Personalizacja (Easter Egg)**: Na Twoje życzenie, dodaliśmy specjalną, "zahardkodowaną" odpowiedź. Na pytanie o najpiękniejszą dziewczynę na świecie, Jarvis bez wahania odpowie "Ola Reczulska!!!!".
+
+### Naprawione Błędy i Debugowanie:
+
+-   **Krytyczny Błąd Klucza API (Error 401)**: Po zaimplementowaniu nowej funkcji, napotkaliśmy uporczywy błąd uniemożliwiający połączenie z OpenAI.
+    *   **Diagnoza**: Aby wyizolować problem, stworzyliśmy dedykowany skrypt `test_openai.py`.
+    *   **Rozwiązanie**: Test jednoznacznie wykazał, że problemem był nieprawidłowy klucz API w pliku `.env` – przez pomyłkę znajdował się tam tekst instrukcji zamiast faktycznego klucza. Po poprawieniu klucza i restarcie serwera, system zaczął działać poprawnie.

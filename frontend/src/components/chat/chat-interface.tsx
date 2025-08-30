@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatMessage } from './chat-message';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mic } from 'lucide-react'; // Usunięto MicOff, dodamy logikę w locie
+import { Loader2, Mic, Paperclip, X } from 'lucide-react';
 import { Message } from '@/types/global';
 
 type ListeningState = 'idle' | 'listening' | 'processing';
@@ -18,8 +18,10 @@ export default function ChatInterface() {
   const [listeningState, setListeningState] = useState<ListeningState>('idle');
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const isSpeakingRef = useRef(false);
@@ -192,6 +194,34 @@ export default function ChatInterface() {
 
   const startListening = async () => {
     if (isSpeakingRef.current) return;
+
+    if (selectedFile) {
+      let sessionId = currentSessionId;
+      if (!sessionId && isBrowser) {
+        sessionId = `session_${Date.now()}`;
+        setCurrentSessionId(sessionId);
+        localStorage.setItem('active_chat_session', sessionId);
+        // Dispatch event to update session list if it's a new session
+        window.dispatchEvent(new Event('chat-session-changed'));
+      }
+      
+      if (sessionId) {
+        setListeningState('processing');
+        setNotification("Wysyłanie pliku...");
+        
+        const uploadSuccess = await uploadFile(selectedFile, sessionId);
+        
+        setNotification(null);
+        
+        if (!uploadSuccess) {
+          setListeningState('idle');
+          return;
+        }
+        
+        clearFileSelection();
+      }
+    }
+
     setListeningState('listening');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -265,6 +295,53 @@ export default function ChatInterface() {
     }
   }, [messages]);
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const clearFileSelection = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadFile = async (file: File, sessionId: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('chat_id', sessionId);
+
+    try {
+      const response = await fetch('http://localhost:9002/upload_document', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Błąd sieciowy podczas wysyłania pliku.');
+      }
+
+      const result = await response.json();
+      console.log('Odpowiedź serwera po wysłaniu pliku:', result);
+      toast({
+        title: "Plik wysłany!",
+        description: `Plik ${file.name} jest gotowy do analizy.`,
+      });
+      return true;
+    } catch (error) {
+      console.error('Błąd podczas wysyłania pliku:', error);
+      toast({
+        title: "Błąd wysyłania pliku",
+        description: "Nie udało się wysłać pliku na serwer. Spróbuj ponownie.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   const getStatusText = () => {
     switch (listeningState) {
       case 'idle': return 'Jarvis śpi. Kliknij, aby rozpocząć rozmowę.';
@@ -295,23 +372,62 @@ export default function ChatInterface() {
         </ScrollArea>
       </main>
 
-      <footer className="p-4 border-t bg-card/80 backdrop-blur-sm flex flex-col items-center justify-center text-center min-h-[96px]">
-        <Button 
-          size="lg"
-          className="w-24 h-24 rounded-full disabled:opacity-100"
-          onClick={handleButtonClick}
-          disabled={listeningState === 'processing'}
-          variant={listeningState === 'listening' ? 'destructive' : 'default'}
-        >
-          {listeningState === 'processing' ? (
-            <Loader2 className="h-8 w-8 animate-spin" />
+      <footer className="p-4 border-t bg-card/80 backdrop-blur-sm flex flex-col items-center justify-center text-center min-h-[140px]">
+        <div className="flex items-center gap-4">
+          <Button 
+            size="icon"
+            variant="outline"
+            className="w-12 h-12 rounded-full"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={listeningState === 'processing' || !!selectedFile}
+          >
+            <Paperclip className="h-6 w-6" />
+            <span className="sr-only">Załącz plik</span>
+          </Button>
+
+          <Button 
+            size="lg"
+            className="w-24 h-24 rounded-full disabled:opacity-100"
+            onClick={handleButtonClick}
+            disabled={listeningState === 'processing'}
+            variant={listeningState === 'listening' ? 'destructive' : 'default'}
+          >
+            {listeningState === 'processing' ? (
+              <Loader2 className="h-8 w-8 animate-spin" />
+            ) : (
+              <Mic className="h-8 w-8" />
+            )}
+            <span className="sr-only">{listeningState === 'idle' ? 'Uruchom Jarvisa' : 'Zatrzymaj Jarvisa'}</span>
+          </Button>
+          
+          <div className="w-12 h-12 flex items-center justify-center">
+            {selectedFile && (
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full" onClick={clearFileSelection}>
+                <X className="h-5 w-5" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          onChange={handleFileChange}
+          className="hidden"
+          accept=".pdf,.txt,.md"
+        />
+
+        <div className="h-6 mt-2">
+          {selectedFile ? (
+            <p className="text-sm text-muted-foreground">
+              Wybrano: {selectedFile.name}
+            </p>
           ) : (
-            <Mic className="h-8 w-8" />
+            notification && <p className="text-sm text-yellow-500">{notification}</p>
           )}
-          <span className="sr-only">{listeningState === 'idle' ? 'Uruchom Jarvisa' : 'Zatrzymaj Jarvisa'}</span>
-        </Button>
-        {notification && <p className="text-sm text-yellow-500 mt-2">{notification}</p>}
-        <p className="text-sm text-muted-foreground mt-2">{getStatusText()}</p>
+        </div>
+
+        <p className="text-sm text-muted-foreground mt-1">{getStatusText()}</p>
       </footer>
     </div>
   );
